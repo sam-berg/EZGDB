@@ -2,12 +2,16 @@
 from xml.etree.ElementTree import ElementTree as ET, XML
 from xml.etree.ElementTree import ElementTree,Element, SubElement, Comment, tostring 
 import arcpy
+import collections
+
+class Expando(object):
+    pass
 
 #f=open('C://data//_code//GDBModel//EZGDB//work.xml','w')
 wb2 = load_workbook('C://data//_code//GDBModel//EZGDB//work.xlsx')
 sOutXMLFile='C://data//_code//GDBModel//EZGDB//work.xml'
 sFCName="new"
-eGT = 'esriGeometryPoint'
+eGT = 'esriGeometryPoint' #default
 sWKT='GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433],AUTHORITY["EPSG",4326]]'
 
 print 'reading sheets... ' + str(wb2.get_sheet_names())
@@ -18,9 +22,45 @@ tpe=wb2['Meta']['B2'].value
 eGT=tpe
 
 #read choices sheet
+choicesheet = wb2['choices']
+highrow=choicesheet.get_highest_row()
+domainlist= []
+domainvalues=[]
+rawdomainlist=[]
+
+#for each domain value, need to group
+
+for r in range(2,highrow+1):
+
+    domainname=choicesheet['A' + str(r)].value
+    domval=choicesheet['B' + str(r)].value
+    domlbl=choicesheet['C' + str(r)].value
+    d=None
+
+    if(domainname!=None and domainname!='' ):
+        #find domain name in all domainlist objects
+        bDomainExists=False
+        for d2 in domainlist:
+            if (domainname == d2.domainname):
+                d=d2
+                break
+
+        if(d==None):
+            d=Expando()
+            d.domainname = domainname
+            d.values=[]
+            domainlist.append(d)
+        
+        d.values.append({"domainvalue":domval,"domainlabel":domlbl})
+
+
+dl = domainlist
+
+
+
 
 #read fields sheet
-fieldssheet=wb2['Fields']
+fieldssheet=wb2['survey']
 highrow=fieldssheet.get_highest_row()
 fieldlist=[]
 for row in range(2, highrow + 1):
@@ -40,10 +80,27 @@ wd=SubElement(ws,'WorkspaceDefinition',{'xsi:type':'esri:WorkspaceDefinition'})
 
 wt=SubElement(wd,'WorkspaceType').text="esriLocalDatabaseWorkspace"
 
-
 v=SubElement(wd,'Version')
 
 domains=SubElement(wd,'Domains',{'xsi:type':'esri:ArrayOfDomain'})
+
+#add domains
+for domaintoadd in dl:
+    dmaine=SubElement(domains,'Domain',{'xsi:type':'esri:CodedValueDomain'})
+    SubElement(dmaine,"DomainName").text = domaintoadd.domainname
+    SubElement(dmaine,"FieldType").text = 'esriFieldTypeString'
+    SubElement(dmaine,"MergePolicy").text = 'esriMPTDefaultValue'
+    SubElement(dmaine,"SplitPolicy").text = 'esriSPTDefaultValue'
+    SubElement(dmaine,"Description").text = ''
+    SubElement(dmaine,"Owner").text = ''
+    cvals = SubElement(dmaine,"CodedValues",{'xsi:type':'esri:ArrayOfCodedValue'})
+    for cv in domaintoadd.values:
+        cv2= SubElement(cvals,'CodedValue',{'xsi:type':'esri:CodedValue'})
+        SubElement(cv2,"Name").text = cv['domainlabel']
+        SubElement(cv2,"Code").text = cv['domainlabel']
+    domaintoadd.element = dmaine
+     
+
 dd=SubElement(wd,'DatasetDefinitions',{'xsi:type':'esri:ArrayOfDataElement'})
 de=SubElement(dd,'DataElement',{'xsi:type':'esri:DEFeatureClass'})
 cp=SubElement(de,'CatalogPath').text="/FC=" + sFCName
@@ -85,7 +142,18 @@ fieldmodelname=SubElement(field2,'ModelName').text="SHAPE"
 for fld in fieldlist:
     newfield=SubElement(fieldarray,'Field',{'xsi:type':'esri:Field'})
     fieldname=SubElement(newfield,'Name').text=fld['name']
-    fieldtype=SubElement(newfield,'Type').text="esriFieldTypeString" #todo fld['name'] via lookup
+    t=fld['type']
+    ftpe="esriFieldTypeString"
+    doma=""
+    if(t.startswith('text')): ftpe="esriFieldTypeString"
+    if(t.startswith('integer')): ftpe="esriFieldTypeInteger"
+    if(t.startswith('decimal')): ftpe="esriFieldTypeDouble"
+    if(t.startswith('date')): ftpe="esriFieldTypeDate"
+    if(t.startswith('select_one')): 
+        ftpe="esriFieldTypeString"
+        doma=t.split()[1]
+
+    fieldtype=SubElement(newfield,'Type').text=ftpe#"esriFieldTypeString" #todo fld['type'] via lookup
     fieldisnull=SubElement(newfield,'IsNullable').text="true"
     fieldlength=SubElement(newfield,'Length').text="255"
     fieldprecision=SubElement(newfield,'Precision').text="0"
@@ -94,6 +162,17 @@ for fld in fieldlist:
     fielddomainfixed=SubElement(newfield,'DomainFixed').text="true"
     fieldaliasname=SubElement(newfield,'AliasName').text=fld['label']
     fieldmodelname=SubElement(newfield,'ModelName').text=fld['name']
+
+    if doma!='':
+        #dmaine=SubElement(newfield,'Domain',{'xsi:type':'esri:CodedValueDomain'})
+        #find domain element
+        for domaintoadd in dl:
+            if domaintoadd.domainname==doma:
+                newfield.append(domaintoadd.element)
+                break
+                
+
+         
 ####
 
 geomdef=SubElement(field2,'GeometryDef',{'xsi:type':'esri:GeometryDef'})
