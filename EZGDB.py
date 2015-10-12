@@ -1,6 +1,7 @@
 ﻿from openpyxl import load_workbook
 from xml.etree.ElementTree import ElementTree as ET, XML
 from xml.etree.ElementTree import ElementTree,Element, SubElement, Comment, tostring 
+import arcpy
 
 #f=open('C://data//_code//GDBModel//EZGDB//work.xml','w')
 wb2 = load_workbook('C://data//_code//GDBModel//EZGDB//work.xlsx')
@@ -12,10 +13,22 @@ sWKT='GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298
 print 'reading sheets... ' + str(wb2.get_sheet_names())
 
 #read meta sheet
+nme = wb2['Meta']['B1'].value
+tpe=wb2['Meta']['B2'].value
+eGT=tpe
 
 #read choices sheet
 
 #read fields sheet
+fieldssheet=wb2['Fields']
+highrow=fieldssheet.get_highest_row()
+fieldlist=[]
+for row in range(2, highrow + 1):
+    name  = fieldssheet['B' + str(row)].value
+    type = fieldssheet['A' + str(row)].value
+    label = fieldssheet['C' + str(row)].value
+    fieldlist.append({"name":name,'type':type,'label':label})
+
 
 print 'writing workspace to ' + sOutXMLFile + "..."
 tree=ElementTree()
@@ -34,14 +47,13 @@ domains=SubElement(wd,'Domains',{'xsi:type':'esri:ArrayOfDomain'})
 dd=SubElement(wd,'DatasetDefinitions',{'xsi:type':'esri:ArrayOfDataElement'})
 de=SubElement(dd,'DataElement',{'xsi:type':'esri:DEFeatureClass'})
 cp=SubElement(de,'CatalogPath').text="/FC=" + sFCName
-name=SubElement(de,'Name').text= sFCName
+name=SubElement(de,'Name').text= nme# sFCName
 dt=SubElement(de,'DatasetType').text='esriDTFeatureClass'
 dsid=SubElement(de,'DSID').text= "0"
 hid=SubElement(de,'HasOID').text='true'
 oid=SubElement(de,'OIDFieldName').text='OBJECTID'
 fields=SubElement(de,'Fields',{'xsi:type':'esri:Fields'})
 fieldarray=SubElement(fields,'FieldArray',{'xsi:type':'esri:ArrayOfField'})
-#fieldaray = ElementTree.fromstring('<FieldArray xsi:type="esri:ArrayOfField" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><Field xsi:type="esri:Field"><Name>OBJECTID</Name><Type>esriFieldTypeOID</Type><IsNullable>false</IsNullable><Length>4</Length><Precision>0</Precision><Scale>0</Scale><Required>true</Required><Editable>false</Editable><DomainFixed>true</DomainFixed><AliasName>OBJECTID</AliasName><ModelName>OBJECTID</ModelName></Field><Field xsi:type="esri:Field"><Name>SHAPE</Name><Type>esriFieldTypeGeometry</Type><IsNullable>true</IsNullable><Length>0</Length><Precision>0</Precision><Scale>0</Scale><Required>true</Required><DomainFixed>true</DomainFixed><GeometryDef xsi:type="esri:GeometryDef"><AvgNumPoints>0</AvgNumPoints><GeometryType>esriGeometryPolyline</GeometryType><HasM>false</HasM><HasZ>false</HasZ><SpatialReference xsi:type="esri:ProjectedCoordinateSystem"><WKT>PROJCS["NAD_1983_StatePlane_Massachusetts_Mainland_FIPS_2001",GEOGCS["GCS_North_American_1983",DATUM["D_North_American_1983",SPHEROID["GRS_1980",6378137.0,298.257222101]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Lambert_Conformal_Conic"],PARAMETER["False_Easting",200000.0],PARAMETER["False_Northing",750000.0],PARAMETER["Central_Meridian",-71.5],PARAMETER["Standard_Parallel_1",41.71666666666667],PARAMETER["Standard_Parallel_2",42.68333333333333],PARAMETER["Latitude_Of_Origin",41.0],UNIT["Meter",1.0],AUTHORITY["EPSG",26986]]</WKT><XOrigin>-36530900</XOrigin><YOrigin>-28803200</YOrigin><XYScale>10000</XYScale><ZOrigin>-100000</ZOrigin><ZScale>10000</ZScale><MOrigin>-100000</MOrigin><MScale>10000</MScale><XYTolerance>0.001</XYTolerance><ZTolerance>0.001</ZTolerance><MTolerance>0.001</MTolerance><HighPrecision>true</HighPrecision><WKID>26986</WKID><LatestWKID>26986</LatestWKID></SpatialReference><GridSize0>12000</GridSize0></GeometryDef><AliasName>SHAPE</AliasName><ModelName>SHAPE</ModelName></Field></FieldArray>')
 
 field1=SubElement(fieldarray,'Field',{'xsi:type':'esri:Field'})
 fieldname=SubElement(field1,'Name').text="OBJECTID"
@@ -68,6 +80,22 @@ fielddomainfixed=SubElement(field2,'DomainFixed').text="true"
 fieldaliasname=SubElement(field2,'AliasName').text="SHAPE"
 fieldmodelname=SubElement(field2,'ModelName').text="SHAPE"
 
+
+#add specified fields
+for fld in fieldlist:
+    newfield=SubElement(fieldarray,'Field',{'xsi:type':'esri:Field'})
+    fieldname=SubElement(newfield,'Name').text=fld['name']
+    fieldtype=SubElement(newfield,'Type').text="esriFieldTypeString" #todo fld['name'] via lookup
+    fieldisnull=SubElement(newfield,'IsNullable').text="true"
+    fieldlength=SubElement(newfield,'Length').text="255"
+    fieldprecision=SubElement(newfield,'Precision').text="0"
+    fieldscale=SubElement(newfield,'Scale').text="0"
+    fieldrequired=SubElement(newfield,'Required').text="true"
+    fielddomainfixed=SubElement(newfield,'DomainFixed').text="true"
+    fieldaliasname=SubElement(newfield,'AliasName').text=fld['label']
+    fieldmodelname=SubElement(newfield,'ModelName').text=fld['name']
+####
+
 geomdef=SubElement(field2,'GeometryDef',{'xsi:type':'esri:GeometryDef'})
 a=SubElement(geomdef,'AvgNumPoints').text='0'
 gt=SubElement(geomdef,'GeometryType').text=eGT
@@ -90,7 +118,7 @@ a13=SubElement(sr,'LatestWKID').text='4326'
 
 gs=SubElement(geomdef,'GridSize0').text='0'
 
-indexes=XML('<Indexes xsi:type="esri:Indexes" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ><IndexArray xsi:type="esri:ArrayOfIndex"><Index xsi:type="esri:Index"><Name>FDO_OBJECTID</Name><IsUnique>true</IsUnique><IsAscending>true</IsAscending><Fields xsi:type="esri:Fields"><FieldArray xsi:type="esri:ArrayOfField"><Field xsi:type="esri:Field"><Name>OBJECTID</Name><Type>esriFieldTypeOID</Type><IsNullable>false</IsNullable><Length>4</Length><Precision>0</Precision><Scale>0</Scale><Required>true</Required><Editable>false</Editable><DomainFixed>true</DomainFixed><AliasName>OBJECTID</AliasName><ModelName>OBJECTID</ModelName></Field></FieldArray></Fields></Index><Index xsi:type="esri:Index"><Name>FDO_SHAPE</Name><IsUnique>false</IsUnique><IsAscending>true</IsAscending><Fields xsi:type="esri:Fields"><FieldArray xsi:type="esri:ArrayOfField"><Field xsi:type="esri:Field"><Name>SHAPE</Name><Type>esriFieldTypeGeometry</Type><IsNullable>true</IsNullable><Length>0</Length><Precision>0</Precision><Scale>0</Scale><Required>true</Required><DomainFixed>true</DomainFixed><GeometryDef xsi:type="esri:GeometryDef"><AvgNumPoints>0</AvgNumPoints><GeometryType>esriGeometryPolyline</GeometryType><HasM>false</HasM><HasZ>false</HasZ><SpatialReference xsi:type="esri:ProjectedCoordinateSystem"><WKT>PROJCS["NAD_1983_StatePlane_Massachusetts_Mainland_FIPS_2001",GEOGCS["GCS_North_American_1983",DATUM["D_North_American_1983",SPHEROID["GRS_1980",6378137.0,298.257222101]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Lambert_Conformal_Conic"],PARAMETER["False_Easting",200000.0],PARAMETER["False_Northing",750000.0],PARAMETER["Central_Meridian",-71.5],PARAMETER["Standard_Parallel_1",41.71666666666667],PARAMETER["Standard_Parallel_2",42.68333333333333],PARAMETER["Latitude_Of_Origin",41.0],UNIT["Meter",1.0],AUTHORITY["EPSG",26986]]</WKT><XOrigin>-36530900</XOrigin><YOrigin>-28803200</YOrigin><XYScale>10000</XYScale><ZOrigin>-100000</ZOrigin><ZScale>10000</ZScale><MOrigin>-100000</MOrigin><MScale>10000</MScale><XYTolerance>0.001</XYTolerance><ZTolerance>0.001</ZTolerance><MTolerance>0.001</MTolerance><HighPrecision>true</HighPrecision><WKID>26986</WKID><LatestWKID>26986</LatestWKID></SpatialReference><GridSize0>12000</GridSize0></GeometryDef><AliasName>SHAPE</AliasName><ModelName>SHAPE</ModelName></Field></FieldArray></Fields></Index></IndexArray></Indexes>')
+indexes=XML('<Indexes xsi:type="esri:Indexes" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ><IndexArray xsi:type="esri:ArrayOfIndex"><Index xsi:type="esri:Index"><Name>FDO_OBJECTID</Name><IsUnique>true</IsUnique><IsAscending>true</IsAscending><Fields xsi:type="esri:Fields"><FieldArray xsi:type="esri:ArrayOfField"><Field xsi:type="esri:Field"><Name>OBJECTID</Name><Type>esriFieldTypeOID</Type><IsNullable>false</IsNullable><Length>4</Length><Precision>0</Precision><Scale>0</Scale><Required>true</Required><Editable>false</Editable><DomainFixed>true</DomainFixed><AliasName>OBJECTID</AliasName><ModelName>OBJECTID</ModelName></Field></FieldArray></Fields></Index><Index xsi:type="esri:Index"><Name>FDO_SHAPE</Name><IsUnique>false</IsUnique><IsAscending>true</IsAscending><Fields xsi:type="esri:Fields"><FieldArray xsi:type="esri:ArrayOfField"><Field xsi:type="esri:Field"><Name>SHAPE</Name><Type>esriFieldTypeGeometry</Type><IsNullable>true</IsNullable><Length>0</Length><Precision>0</Precision><Scale>0</Scale><Required>true</Required><DomainFixed>true</DomainFixed><GeometryDef xsi:type="esri:GeometryDef"><AvgNumPoints>0</AvgNumPoints><GeometryType>' + eGT + '</GeometryType><HasM>false</HasM><HasZ>false</HasZ><SpatialReference xsi:type="esri:ProjectedCoordinateSystem"><WKT>PROJCS["NAD_1983_StatePlane_Massachusetts_Mainland_FIPS_2001",GEOGCS["GCS_North_American_1983",DATUM["D_North_American_1983",SPHEROID["GRS_1980",6378137.0,298.257222101]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Lambert_Conformal_Conic"],PARAMETER["False_Easting",200000.0],PARAMETER["False_Northing",750000.0],PARAMETER["Central_Meridian",-71.5],PARAMETER["Standard_Parallel_1",41.71666666666667],PARAMETER["Standard_Parallel_2",42.68333333333333],PARAMETER["Latitude_Of_Origin",41.0],UNIT["Meter",1.0],AUTHORITY["EPSG",26986]]</WKT><XOrigin>-36530900</XOrigin><YOrigin>-28803200</YOrigin><XYScale>10000</XYScale><ZOrigin>-100000</ZOrigin><ZScale>10000</ZScale><MOrigin>-100000</MOrigin><MScale>10000</MScale><XYTolerance>0.001</XYTolerance><ZTolerance>0.001</ZTolerance><MTolerance>0.001</MTolerance><HighPrecision>true</HighPrecision><WKID>26986</WKID><LatestWKID>26986</LatestWKID></SpatialReference><GridSize0>12000</GridSize0></GeometryDef><AliasName>SHAPE</AliasName><ModelName>SHAPE</ModelName></Field></FieldArray></Fields></Index></IndexArray></Indexes>')
 de.append(indexes)
 ep=XML('<ExtensionProperties xsi:type="esri:PropertySet" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><PropertyArray xsi:type="esri:ArrayOfPropertySetProperty"></PropertyArray></ExtensionProperties>')
 de.append(ep)
@@ -115,6 +143,8 @@ wd=SubElement(ws,'WorkspaceData',{'xsi:type':'esriWorkspaceData'})
 
 tree._setroot(ws)
 tree.write(sOutXMLFile)
+
+arcpy.SetParameter(1,sOutXMLFile)
 
 print 'complete.'
 
