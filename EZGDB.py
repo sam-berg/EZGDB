@@ -56,7 +56,7 @@ for r in range(2,highrow+1):
         #find domain name in all domainlist objects
         bDomainExists=False
         for d2 in domainlist:
-            if (domainname == d2.domainname):
+            if (str(domainname).strip() == str(d2.domainname).strip()):
                 d=d2
                 break
 
