@@ -7,14 +7,29 @@ import collections
 class Expando(object):
     pass
 
+inworkbook=arcpy.GetParameterAsText(0)
+inxmlfile=arcpy.GetParameterAsText(1)
+
+wb='C://Users//sberg//OneDrive - Vanasse Hangen Brustlin, Inc-//Shared with Everyone//Runoff Tracking and Accounting//VHB Runoff Tracking and Accounting Architecture - Project.xlsx'
+if inworkbook!=None and inworkbook!='': 
+    arcpy.AddMessage("Input Workbook: " + inworkbook)
+    wb=inworkbook
+
 #f=open('C://data//_code//GDBModel//EZGDB//work.xml','w')
-wb2 = load_workbook('C://data//_code//GDBModel//EZGDB//work.xlsx')
-sOutXMLFile='C://data//_code//GDBModel//EZGDB//work.xml'
+sOutXMLFile='C://Users//sberg//OneDrive - Vanasse Hangen Brustlin, Inc-//Shared with Everyone//Runoff Tracking and Accounting//Project.xml'# 'C://data//_code//GDBModel//EZGDB//work.xml'
 sFCName="new"
 eGT = 'esriGeometryPoint' #default
 sWKT='GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433],AUTHORITY["EPSG",4326]]'
 
+
+if inxmlfile!=None and inxmlfile!='':sOutXMLFile=inxmlfile
+arcpy.AddMessage("Output XML File: " + sOutXMLFile)
+
+wb2 = load_workbook(wb)#'C://Users//sberg//OneDrive - Vanasse Hangen Brustlin, Inc-//Shared with Everyone//Runoff Tracking and Accounting//VHB Runoff Tracking and Accounting Architecture - Project.xlsx')#('C://data//_code//GDBModel//EZGDB//work.xlsx')
+
+
 print 'reading sheets... ' + str(wb2.get_sheet_names())
+#arcpy.AddMessage('reading sheets... ' + str(wb2.get_sheet_names()))
 
 #read meta sheet
 nme = wb2['Meta']['B1'].value
@@ -47,7 +62,7 @@ for r in range(2,highrow+1):
 
         if(d==None):
             d=Expando()
-            d.domainname = domainname
+            d.domainname = str(domainname).strip()
             d.values=[]
             domainlist.append(d)
         
@@ -140,36 +155,38 @@ fieldmodelname=SubElement(field2,'ModelName').text="SHAPE"
 
 #add specified fields
 for fld in fieldlist:
-    newfield=SubElement(fieldarray,'Field',{'xsi:type':'esri:Field'})
-    fieldname=SubElement(newfield,'Name').text=fld['name']
-    t=fld['type']
-    ftpe="esriFieldTypeString"
-    doma=""
-    if(t.startswith('text')): ftpe="esriFieldTypeString"
-    if(t.startswith('integer')): ftpe="esriFieldTypeInteger"
-    if(t.startswith('decimal')): ftpe="esriFieldTypeDouble"
-    if(t.startswith('date')): ftpe="esriFieldTypeDate"
-    if(t.startswith('select_one')): 
+    if fld['name']!=None and fld['name']!='':
+        newfield=SubElement(fieldarray,'Field',{'xsi:type':'esri:Field'})
+        fieldname=SubElement(newfield,'Name').text=str(fld['name']).strip()
+        t=fld['type']
         ftpe="esriFieldTypeString"
-        doma=t.split()[1]
+        doma=""
+        if(t.startswith('text')): ftpe="esriFieldTypeString"
+        if(t.startswith('integer')): ftpe="esriFieldTypeInteger"
+        if(t.startswith('decimal')): ftpe="esriFieldTypeDouble"
+        if(t.startswith('date')): ftpe="esriFieldTypeDate"
+        if(t.startswith('select_one')): 
+            ftpe="esriFieldTypeString"
+            doma=t.split()[1]
+            doma=doma.strip()
 
-    fieldtype=SubElement(newfield,'Type').text=ftpe#"esriFieldTypeString" #todo fld['type'] via lookup
-    fieldisnull=SubElement(newfield,'IsNullable').text="true"
-    fieldlength=SubElement(newfield,'Length').text="255"
-    fieldprecision=SubElement(newfield,'Precision').text="0"
-    fieldscale=SubElement(newfield,'Scale').text="0"
-    fieldrequired=SubElement(newfield,'Required').text="true"
-    fielddomainfixed=SubElement(newfield,'DomainFixed').text="true"
-    fieldaliasname=SubElement(newfield,'AliasName').text=fld['label']
-    fieldmodelname=SubElement(newfield,'ModelName').text=fld['name']
+        fieldtype=SubElement(newfield,'Type').text=ftpe#"esriFieldTypeString" #todo fld['type'] via lookup
+        fieldisnull=SubElement(newfield,'IsNullable').text="true"
+        fieldlength=SubElement(newfield,'Length').text="255"
+        fieldprecision=SubElement(newfield,'Precision').text="0"
+        fieldscale=SubElement(newfield,'Scale').text="0"
+        fieldrequired=SubElement(newfield,'Required').text="true"
+        fielddomainfixed=SubElement(newfield,'DomainFixed').text="true"
+        fieldaliasname=SubElement(newfield,'AliasName').text=fld['label']
+        fieldmodelname=SubElement(newfield,'ModelName').text=fld['name']
 
-    if doma!='':
+        if doma!='':
         #dmaine=SubElement(newfield,'Domain',{'xsi:type':'esri:CodedValueDomain'})
         #find domain element
-        for domaintoadd in dl:
-            if domaintoadd.domainname==doma:
-                newfield.append(domaintoadd.element)
-                break
+            for domaintoadd in dl:
+                 if domaintoadd.domainname==doma:
+                    newfield.append(domaintoadd.element)
+                    break
                 
 
          
