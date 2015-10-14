@@ -7,16 +7,32 @@ import collections
 class Expando(object):
     pass
 
+def is_number(s):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        pass
+ 
+    try:
+        import unicodedata
+        unicodedata.numeric(s)
+        return True
+    except (TypeError, ValueError):
+        pass
+ 
+    return False
+
 inworkbook=arcpy.GetParameterAsText(0)
 inxmlfile=arcpy.GetParameterAsText(1)
 
-wb='C://Users//sberg//OneDrive - Vanasse Hangen Brustlin, Inc-//Shared with Everyone//Runoff Tracking and Accounting//VHB Runoff Tracking and Accounting Architecture - Project.xlsx'
+wb='C://Users//sberg//OneDrive - Vanasse Hangen Brustlin, Inc-//Shared with Everyone//Runoff Tracking and Accounting//VHB Runoff Tracking and Accounting Architecture - BMP.xlsx'
 if inworkbook!=None and inworkbook!='': 
     arcpy.AddMessage("Input Workbook: " + inworkbook)
     wb=inworkbook
 
 #f=open('C://data//_code//GDBModel//EZGDB//work.xml','w')
-sOutXMLFile='C://Users//sberg//OneDrive - Vanasse Hangen Brustlin, Inc-//Shared with Everyone//Runoff Tracking and Accounting//Project.xml'# 'C://data//_code//GDBModel//EZGDB//work.xml'
+sOutXMLFile='C://Users//sberg//OneDrive - Vanasse Hangen Brustlin, Inc-//Shared with Everyone//Runoff Tracking and Accounting//BMP.xml'# 'C://data//_code//GDBModel//EZGDB//work.xml'
 sFCName="new"
 eGT = 'esriGeometryPoint' #default
 sWKT='GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433],AUTHORITY["EPSG",4326]]'
@@ -103,7 +119,11 @@ domains=SubElement(wd,'Domains',{'xsi:type':'esri:ArrayOfDomain'})
 for domaintoadd in dl:
     dmaine=SubElement(domains,'Domain',{'xsi:type':'esri:CodedValueDomain'})
     SubElement(dmaine,"DomainName").text = domaintoadd.domainname
-    SubElement(dmaine,"FieldType").text = 'esriFieldTypeString'
+    dtt='esriFieldTypeString'
+    if is_number (str(domaintoadd.values[0]['domainvalue'])):
+        dtt='esriFieldTypeInteger'
+
+    SubElement(dmaine,"FieldType").text = dtt#'esriFieldTypeString'
     SubElement(dmaine,"MergePolicy").text = 'esriMPTDefaultValue'
     SubElement(dmaine,"SplitPolicy").text = 'esriSPTDefaultValue'
     SubElement(dmaine,"Description").text = ''
@@ -112,7 +132,7 @@ for domaintoadd in dl:
     for cv in domaintoadd.values:
         cv2= SubElement(cvals,'CodedValue',{'xsi:type':'esri:CodedValue'})
         SubElement(cv2,"Name").text = cv['domainlabel']
-        SubElement(cv2,"Code").text = cv['domainlabel']
+        SubElement(cv2,"Code").text = str(cv['domainvalue'])
     domaintoadd.element = dmaine
      
 
@@ -169,7 +189,12 @@ for fld in fieldlist:
             ftpe="esriFieldTypeString"
             doma=t.split()[1]
             doma=doma.strip()
-
+            for domaintoadd2 in dl:
+                if str(domaintoadd2.domainname)==str(doma):
+                    if is_number(str(domaintoadd2.values[0]['domainvalue'])):
+                        ftpe='esriFieldTypeInteger'
+                    break
+        
         fieldtype=SubElement(newfield,'Type').text=ftpe#"esriFieldTypeString" #todo fld['type'] via lookup
         fieldisnull=SubElement(newfield,'IsNullable').text="true"
         fieldlength=SubElement(newfield,'Length').text="255"
